@@ -33,7 +33,7 @@ class Supervisor:
         self.waypoint_offset.pose.orientation.w = quat[3]
 
     def rviz_goal_callback(self, msg):
-        pose_to_xyth(msg.pose)    # example usage of the function pose_to_xyth (defined above)
+        self.goal = pose_to_xyth(msg.pose)    # example usage of the function pose_to_xyth (defined above)
         # this callback does nothing... yet!
 
     def update_waypoints(self):
@@ -47,7 +47,15 @@ class Supervisor:
     def run(self):
         rate = rospy.Rate(1) # 1 Hz, change this to whatever you like
         while not rospy.is_shutdown():
-            self.update_waypoints()
+            self.update_waypoints()   # updates location of tags
+
+
+            # explore
+                # select points on rviz
+                    # self.goal = self.rviz_goal_callback
+            # go to tag locations
+
+            # go home
 
             # FILL ME IN!
 
@@ -56,3 +64,6 @@ class Supervisor:
 if __name__ == '__main__':
     sup = Supervisor()
     sup.run()
+
+
+# waypoints == tags
