@@ -1,5 +1,5 @@
 <launch>
-    <node pkg="turtlebot_mission_control" type="controller.py" name="turtlebot_controller"/>
-    <node pkg="turtlebot_mission_control" type="supervisor.py" name="turtlebot_supervisor"/>
-    <node pkg="turtlebot_mission_control" type="navigator.py" name="turtlebot_navigator"/>
+    <node pkg="turtlebot_mission_control" type="controller.py" name="turtlebot_controller" output = "screen"/>
+    <node pkg="turtlebot_mission_control" type="supervisor.py" name="turtlebot_supervisor" output = "screen"/>
+    <node pkg="turtlebot_mission_control" type="navigator.py" name="turtlebot_navigator" output = "screen"/>
 </launch>
