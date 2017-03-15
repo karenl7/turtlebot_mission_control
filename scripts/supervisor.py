@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from std_msgs.msg import Int32MultiArray, Float32MultiArray, String
+from std_msgs.msg import Int32MultiArray, Float32MultiArray, String, Bool
 from geometry_msgs.msg import PoseStamped
 import tf
 import numpy as np
@@ -22,6 +22,15 @@ class Supervisor:
         self.trans_broad = tf.TransformBroadcaster()
 
         rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.rviz_goal_callback)    # rviz "2D Nav Goal"
+        
+        # Read mission 
+        rospy.Subscriber('/mission', Int32MultiArray, self.mission_callback) 
+
+        # Broadcast location of tags
+        self.loc_broadcast = rospy.Publisher('/turtlebot_control/waypoint_location', Float32MultiArray, queue_size=10)
+
+        # Read in if has reached waypoint
+        rospy.Subscriber('/turtlebot_control/waypoint_done', Bool, self.get_done)
 
         self.waypoint_locations = {}    # dictionary that caches the most updated locations of each mission waypoint
         self.waypoint_offset = PoseStamped()
@@ -31,6 +40,20 @@ class Supervisor:
         self.waypoint_offset.pose.orientation.y = quat[1]
         self.waypoint_offset.pose.orientation.z = quat[2]
         self.waypoint_offset.pose.orientation.w = quat[3]
+
+        # Variables for FSM
+        self.state = "explore"
+        self.mission = []
+        self.waypoint_number = 0
+        self.waypoint_done = False
+
+    # Check if done moving to waypoint
+    def get_done(self, data):
+        self.waypoint_done = data.data
+
+    # Read in mission tags
+    def mission_callback(self, data):
+        self.mission = data.data
 
     def rviz_goal_callback(self, msg):
         self.goal = pose_to_xyth(msg.pose)    # example usage of the function pose_to_xyth (defined above)
@@ -51,11 +74,42 @@ class Supervisor:
 
 
             # explore
+            if self.state == "explore":
+                pass #TODO
                 # select points on rviz
                     # self.goal = self.rviz_goal_callback
+
+                # Check if we've seen all tags
+                if set(self.waypoint_locations.keys()).issuperset(set(self.mission)):
+                    self.state = "mission"
+                
+
+
             # go to tag locations
+            elif self.state == "mission":
+                # Check if arrived at desired waypoint
+                if self.waypoint_done:
+                    self.waypoint_number += 1
+                    self.done = False
+
+                # Broadcast next goal state
+                data = Float32MultiArray()
+                data.data = self.waypoint_locations[self.mission[self.waypoint_number]]
+                self.loc_broadcast.publish(data)
+                rate.sleep()
+
+                # Check if all waypoints done
+                if self.done and (self.waypoint_number == len(self.mission)):
+                    self.state = "home"
 
             # go home
+            else:
+                # Broadcast state 0 to go home
+                data = Float32MultiArray()
+                data.data = self.waypoint_locations[0]
+                self.loc_broadcast.publish(data)
+                rate.sleep()
+
 
             # FILL ME IN!
 
