@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-
 # Represents a motion planning problem to be solved using A*
 class AStar(object):
 
@@ -15,7 +14,7 @@ class AStar(object):
         self.resolution = resolution          # resolution of the discretization of state space (cell/m)
 
         self.closed_set = []    # the set containing the states that have been visited
-        self.open_set = []      # the set containing the states that are condidate for future expension
+        self.open_set = []      # the set containing the states that are candidate for future expansion
 
         self.f_score = {}       # dictionary of the f score (estimated cost from start to goal passing through state)
         self.g_score = {}       # dictionary of the g score (cost-to-go from start to state)
@@ -33,7 +32,7 @@ class AStar(object):
     #          x - tuple state
     # OUTPUT: Boolean True/False
     def is_free(self, x):
-        if x==self.x_init or x==self.x_goal:
+        if x == self.x_init or x==self.x_goal:
             return True
         for dim in range(len(x)):
             if x[dim] < self.statespace_lo[dim]:
@@ -60,19 +59,15 @@ class AStar(object):
     #           x - tuple state
     # OUTPUT: List of neighbors that are free, as a list of TUPLES
     def get_neighbors(self, x):
-        # TODO: fill me in!
-        neighbor_list = []
-
-        for dx in [-1., 0., 1.]:
-            for dy in [-1., 0., 1.]:
-
-                if dx != 0 or dy != 0:
-                    curr_neighbor = (x[0] + dx*self.resolution, x[1] + dy*self.resolution)
-
-                    if self.is_free(curr_neighbor):
-                        neighbor_list.append(curr_neighbor)
-
-        return neighbor_list
+        # right, top right, top, top left, left, bottom left, bottom, bottom right
+        dx = [1, 1, 0, -1, -1, -1, -1, 0, 1]*self.resolution
+        dy = [0, 1, 1, 1, 0, -1, -1, -1, ]*self.resolution
+        neighbours = []
+        for i in range(8):
+            nn = (x[0] + dx[i], x[1] + dy[i])
+            if self.is_free(nn):
+                neighbours.append(nn)
+        return neighbours
 
 
     # Gets the state in open_set that has the lowest f_score
@@ -113,7 +108,6 @@ class AStar(object):
 
         plt.axis('equal')
         plt.show()
-        self.fig  = fig
 
     # Solves the planning problem using the A* search algorithm. It places
     # the solution as a list of of tuples (each representing a state) that go
@@ -122,40 +116,25 @@ class AStar(object):
     # OUTPUT: Boolean, True if a solution from x_init to x_goal was found
     def solve(self):
         while len(self.open_set)>0:
-            # TODO: fill me in!
-
-            # The current node is the one from the open set with the lowest f score
-            x_current = self.find_best_f_score()
-
-            # If the current node is the goal, return the path
-            if x_current == self.x_goal:
+            xcurr = self.find_best_f_score()
+            if xcurr == self.x_goal:
                 self.path = self.reconstruct_path()
-                return True
-
-            # Remove the current node from the open set and add to closed set
-            self.open_set.remove(x_current)
-            self.closed_set.append(x_current)
-
-            # For each neighbor of the current node
-            for x_neighbor in self.get_neighbors(x_current):
-
-                # Skip loop if the neighbor is in the closed set
-                if x_neighbor in self.closed_set:
+                return self.reconstruct_path()
+            self.open_set.remove(xcurr)
+            self.closed_set.append(xcurr)
+            neighbours = self.get_neighbors(xcurr)
+            for n in neighbours:
+                if n in self.closed_set:
                     continue
-
-                # Calculate the tentative g score
-                tentative_g_score = self.g_score[x_current] + self.distance(x_current, x_neighbor)
-
-                # If the neighbor is not in the open set, add it or skip if tentative g score is higher
-                if x_neighbor not in self.open_set:
-                    self.open_set.append(x_neighbor)
-                elif tentative_g_score > self.g_score[x_neighbor]:
+                tent_g_score = self.g_score[xcurr] + self.distance(xcurr, n)
+                if n not in self.open_set:
+                    self.open_set.append(n)
+                elif tent_g_score > self.g_score[n]:
                     continue
+                self.came_from[n] = xcurr
+                self.g_score[n] = tent_g_score
+                self.f_score[n] = tent_g_score + self.distance(n, self.x_goal)
 
-                # Update the came_from and score dictionaries
-                self.came_from[x_neighbor] = x_current
-                self.g_score[x_neighbor] = tentative_g_score
-                self.f_score[x_neighbor] = tentative_g_score + self.distance(x_neighbor, self.x_goal)
 
         return False
 

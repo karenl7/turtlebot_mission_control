@@ -73,7 +73,7 @@ class Controller:
 	        cmd.angular.z = cmd_theta_dot
 	        return cmd
 
-	    cmd = Twist()
+        cmd = Twist()
         cmd.linear.x = 0
         cmd.angular.z = 0
         return cmd

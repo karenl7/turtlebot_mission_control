@@ -43,7 +43,7 @@ class Supervisor:
 
         # Variables for FSM
         self.state = "explore"
-        self.mission = []
+        self.mission = [1]
         self.waypoint_number = 0
         self.waypoint_done = False
         self.x = 0.0
@@ -94,7 +94,8 @@ class Supervisor:
         while not rospy.is_shutdown():
             self.update_waypoints()   # updates location of tags
             self.update_position()
-            self.waypoint_done = self.check_close()
+            if self.state == "mission":
+                self.waypoint_done = self.check_close()
 
             # explore
             if self.state == "explore":

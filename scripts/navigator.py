@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
-from nav_msgs.msg import MapMetaData
+import rospy
+from nav_msgs.msg import MapMetaData, OccupancyGrid
 import numpy as np
 import matplotlib.pyplot as plt
 import tf
 from std_msgs.msg import Float32MultiArray, Bool
-from astar import AStar, StochOccupancyGrid2D, StochOccupancyGrid2D
+from astar import AStar, DetOccupancyGrid2D, StochOccupancyGrid2D
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
 
@@ -14,7 +15,7 @@ class Navigator:
     def __init__(self):
         rospy.init_node('navigator', anonymous=True)
 
-        self.plan_resolution = 0.25
+        self.plan_resolution = 0.1
         self.plan_horizon = 15
 
         self.map_width = 0
@@ -122,12 +123,14 @@ class Navigator:
     	while not rospy.is_shutdown():
             if np.linalg.norm(np.array([self.x, self.y]) - np.array([self.pose_sp[0], self.pose_sp[1]])) < self.plan_resolution*0.5:
       		    self.send_pose_sp()
-            is_waypoint_done = Bool()
-            is_waypoint_done.data = False    
-            if np.linalg.norm(np.array([self.x, self.y, self.theta]) - np.array(self.nav_sp)) < self.plan_resolution*0.1:
-                is_waypoint_done.data = True
-            self.waypoint_done.publish(waypoint_done)   
-      		rate.sleep()
+            '''is_waypoint_done = Bool()
+            is_waypoint_done.data = False
+
+            if self.nav_sp:
+                if np.linalg.norm(np.array([self.x, self.y, self.theta]) - np.array(self.nav_sp)) < self.plan_resolution*0.1:
+                    is_waypoint_done.data = True
+            self.waypoint_done.publish(is_waypoint_done)'''
+            rate.sleep()
 
 
 
