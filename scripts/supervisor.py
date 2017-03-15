@@ -27,7 +27,7 @@ class Supervisor:
         rospy.Subscriber('/mission', Int32MultiArray, self.mission_callback) 
 
         # Broadcast location of tags
-        self.loc_broadcast = rospy.Publisher('/turtlebot_control/waypoint_location', Float32MultiArray, queue_size=10)
+        self.loc_broadcast = rospy.Publisher('/turtlebot_controller/nav_goal', Float32MultiArray, queue_size=10)
 
         # Read in if has reached waypoint
         rospy.Subscriber('/turtlebot_control/waypoint_done', Bool, self.get_done)
@@ -46,6 +46,11 @@ class Supervisor:
         self.mission = []
         self.waypoint_number = 0
         self.waypoint_done = False
+        self.x = 0.0
+        self.y = 0.0
+        self.theta = 0.0
+        self.resolution = 0.1
+        self.goal = None
 
     # Check if done moving to waypoint
     def get_done(self, data):
@@ -67,17 +72,40 @@ class Supervisor:
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 pass
 
+    def update_position(self):
+        try:
+            (robot_translation,robot_rotation) = self.trans_listener.lookupTransform("/map", "/base_footprint", rospy.Time(0))
+            self.has_robot_location = True
+            self.x = robot_translation[0]
+            self.y = robot_translation[1]  
+            self.theta = tf.transformations.euler_from_quaternion(robot_rotation)[2]
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            robot_translation = (0,0,0)
+            robot_rotation = (0,0,0,1)
+            self.has_robot_location = False
+
+    def check_close(self):
+        return np.linalg.norm(np.array([self.x, self.y, self.theta]) - \
+                    self.waypoint_locations[self.mission[self.waypoint_number]]) < self.resolution
+
+
     def run(self):
         rate = rospy.Rate(1) # 1 Hz, change this to whatever you like
         while not rospy.is_shutdown():
             self.update_waypoints()   # updates location of tags
-
+            self.update_position()
+            self.waypoint_done = self.check_close()
 
             # explore
             if self.state == "explore":
-                pass #TODO
+                 
                 # select points on rviz
                     # self.goal = self.rviz_goal_callback
+                # Broadcast next goal state
+                if self.goal is not None:
+                    data = Float32MultiArray()
+                    data.data = self.goal
+                    self.loc_broadcast.publish(data)
 
                 # Check if we've seen all tags
                 if set(self.waypoint_locations.keys()).issuperset(set(self.mission)):
@@ -87,20 +115,20 @@ class Supervisor:
 
             # go to tag locations
             elif self.state == "mission":
+                if self.waypoint_done and (self.waypoint_number == len(self.mission)):
+                    self.state = "home"
+                else:
                 # Check if arrived at desired waypoint
-                if self.waypoint_done:
-                    self.waypoint_number += 1
-                    self.done = False
+                    if self.waypoint_done:
+                        self.waypoint_number += 1
 
-                # Broadcast next goal state
-                data = Float32MultiArray()
-                data.data = self.waypoint_locations[self.mission[self.waypoint_number]]
-                self.loc_broadcast.publish(data)
-                rate.sleep()
+                    # Broadcast next goal state
+                    data = Float32MultiArray()
+                    data.data = self.waypoint_locations[self.mission[self.waypoint_number]]
+                    self.loc_broadcast.publish(data)
 
                 # Check if all waypoints done
-                if self.done and (self.waypoint_number == len(self.mission)):
-                    self.state = "home"
+                
 
             # go home
             else:
@@ -108,7 +136,6 @@ class Supervisor:
                 data = Float32MultiArray()
                 data.data = self.waypoint_locations[0]
                 self.loc_broadcast.publish(data)
-                rate.sleep()
 
 
             # FILL ME IN!

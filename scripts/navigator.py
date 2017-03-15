@@ -4,7 +4,7 @@ from nav_msgs.msg import MapMetaData
 import numpy as np
 import matplotlib.pyplot as plt
 import tf
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, Bool
 from astar import AStar, StochOccupancyGrid2D, StochOccupancyGrid2D
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
@@ -23,8 +23,12 @@ class Navigator:
         self.map_origin = [0,0]
         self.map_probs = []
         self.occupancy = None
+        self.x = 0.0
+        self.y = 0.0
+        self.theta = 0.0
 
         self.nav_sp = None
+        self.pose_sp = (0.0,0.0,0.0)
 
         self.trans_listener = tf.TransformListener()
 
@@ -35,7 +39,9 @@ class Navigator:
         self.pose_sp_pub = rospy.Publisher('/turtlebot_controller/position_goal', Float32MultiArray, queue_size=10)
         self.nav_path_pub = rospy.Publisher('/turtlebot_controller/path_goal', Path, queue_size=10)
         # publish status of astar
-        self.astar_status = rospy.Publisher('/turtlebot_controller/astar_status', bool, queue_size=10)
+        self.astar_status = rospy.Publisher('/turtlebot_controller/astar_status', Bool, queue_size=10)
+        # waypoint done
+        self.waypoint_done = rospy.Publisher('/turtlebot_control/waypoint_done', Bool, queue_size=10)
 
     def map_md_callback(self,msg):
         self.map_width = msg.width
@@ -63,6 +69,9 @@ class Navigator:
         try:
             (robot_translation,robot_rotation) = self.trans_listener.lookupTransform("/map", "/base_footprint", rospy.Time(0))
             self.has_robot_location = True
+            self.x = robot_translation[0]
+            self.y = robot_translation[1]  
+            self.theta = tf.transformations.euler_from_quaternion(robot_rotation)[2]
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             robot_translation = (0,0,0)
             robot_rotation = (0,0,0,1)
@@ -81,9 +90,9 @@ class Navigator:
                 
                 if len(astar.path) > 1:
                 # a naive path follower we could use
-	                pose_sp = (astar.path[1][0],astar.path[1][1],self.nav_sp[2])
+	                self.pose_sp = (astar.path[1][0],astar.path[1][1],self.nav_sp[2])
 	                msg = Float32MultiArray()
-	                msg.data = pose_sp
+	                msg.data = self.pose_sp
 	                self.pose_sp_pub.publish(msg)
 	                # astar.plot_path()
             	else:
@@ -109,12 +118,20 @@ class Navigator:
                 rospy.logwarn("Could not find path")
 
     def run(self):
-    	rate = rospy.Rate(2) # 10 Hz
+    	rate = rospy.Rate(10) # 10 Hz
     	while not rospy.is_shutdown():
-      		self.send_pose_sp()
+            if np.linalg.norm(np.array([self.x, self.y]) - np.array([self.pose_sp[0], self.pose_sp[1]])) < self.plan_resolution*0.5:
+      		    self.send_pose_sp()
+            is_waypoint_done = Bool()
+            is_waypoint_done.data = False    
+            if np.linalg.norm(np.array([self.x, self.y, self.theta]) - np.array(self.nav_sp)) < self.plan_resolution*0.1:
+                is_waypoint_done.data = True
+            self.waypoint_done.publish(waypoint_done)   
       		rate.sleep()
 
 
+
+#  to do: publish waypoint_done
 
 if __name__ == '__main__':
     nav = Navigator()
