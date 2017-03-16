@@ -62,7 +62,7 @@ class Navigator:
                                                   self.map_height,
                                                   self.map_origin[0],
                                                   self.map_origin[1],
-                                                  int(self.plan_resolution / self.map_resolution*2.5),
+                                                  int(self.plan_resolution / self.map_resolution*2.3),
                                                   self.map_probs)
         if self.has_robot_location and self.nav_sp:
             state_min = (-int(round(self.plan_horizon)), -int(round(self.plan_horizon)))
@@ -88,7 +88,7 @@ class Navigator:
 
     def send_controller_goal(self):
         path_to_robot_dist = np.array(map(lambda x: (x[1]-self.y)**2 + (x[0]-self.x)**2, self.last_path))
-        track_astar_step_no=min( np.argmin(path_to_robot_dist)+1,len(self.last_path)-1) # we tell the controller to track the track_astar_step_no-th point in teh A* path
+        track_astar_step_no=min( np.argmin(path_to_robot_dist)+2,len(self.last_path)-1) # we tell the controller to track the track_astar_step_no-th point in teh A* path
 
         if len(self.last_path) > track_astar_step_no:
             # a naive path follower we could use

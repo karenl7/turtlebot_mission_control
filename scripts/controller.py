@@ -55,9 +55,9 @@ class Controller:
 	        if delta < np.pi or delta > np.pi:
 	            delta = ( (delta + np.pi) % (2 * np.pi)) - np.pi
 
-	        k1 = 0.5
+	        k1 = 0.75
 	        k2 = 0.5
-	        k3 = 1.
+	        k3 = 0.75
 
 	        if rho > .05:
 	            cmd_x_dot = k1 * rho * np.cos(alpha)
