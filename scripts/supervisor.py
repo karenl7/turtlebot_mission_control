@@ -86,12 +86,12 @@ class Supervisor:
             self.has_robot_location = False
 
     def check_close(self):
-        wp_x=self.waypoint_locations[self.mission[self.waypoint_number]].pose.position.x
-        wp_y=self.waypoint_locations[self.mission[self.waypoint_number]].pose.position.y
-        wp_quat =self.waypoint_locations[self.mission[self.waypoint_number]].pose.orientation
-        wp_th = tf.transformations.euler_from_quaternion(wp_quat)[2]
-        return np.linalg.norm(np.array([self.x, self.y, self.theta]) - \
-                    np.array([wp_x,wp_y,wp_th])) < self.resolution
+        wp_x, wp_y, wp_th = pose_to_xyth(self.waypoint_locations[self.mission[self.waypoint_number]].pose)
+        #wp_th = tf.transformations.euler_from_quaternion(wp_quat)[2]
+        return np.linalg.norm(np.array([self.x, self.y, 0.01*self.theta]) - \
+                    np.array([wp_x,wp_y,0.01*wp_th])) < self.resolution
+        #return np.linalg.norm(np.array([self.x, self.y]) - \
+        #            np.array([wp_x,wp_y])) < self.resolution
 
 
     def run(self):
@@ -99,8 +99,6 @@ class Supervisor:
         while not rospy.is_shutdown():
             self.update_waypoints()   # updates location of tags
             self.update_position()
-            if self.state == "mission":
-                self.waypoint_done = self.check_close()
 
             # explore
             if self.state == "explore":
@@ -125,17 +123,21 @@ class Supervisor:
 
             # go to tag locations
             elif self.state == "mission":
+
                 rospy.loginfo("Collecting relics")
+                self.waypoint_done = self.check_close()
+                if self.waypoint_done:
+                    self.waypoint_number += 1
+
                 if self.waypoint_done and (self.waypoint_number == len(self.mission)):
                     self.state = "home"
                 else:
                 # Check if arrived at desired waypoint
-                    if self.waypoint_done:
-                        self.waypoint_number += 1
 
                     # Broadcast next goal state
+                    tag_x, tag_y, tag_th = pose_to_xyth(self.waypoint_locations[self.mission[self.waypoint_number]].pose)
                     data = Float32MultiArray()
-                    data.data = self.waypoint_locations[self.mission[self.waypoint_number]]
+                    data.data = np.array([tag_x, tag_y, tag_th])
                     self.loc_broadcast.publish(data)
 
                 # Check if all waypoints done
@@ -144,8 +146,9 @@ class Supervisor:
             # go home
             else:
                 # Broadcast state 0 to go home
+                tag_x, tag_y, tag_th = pose_to_xyth(self.waypoint_locations[self.mission[0]].pose)
                 data = Float32MultiArray()
-                data.data = self.waypoint_locations[0]
+                data.data = np.array([tag_x, tag_y, tag_th])
                 self.loc_broadcast.publish(data)
 
 
