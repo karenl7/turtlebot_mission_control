@@ -116,6 +116,10 @@ class Supervisor:
                 # Check if we've seen all tags
                 if set(self.waypoint_locations.keys()).issuperset(set(self.mission)):
                     self.state = "mission"
+                else:
+                    notSeen = set(self.mission) - set(self.waypoint_locations.keys())
+                    message = str(len(notSeen)) + "/" + str(len(set(self.mission))) + " waypoints to go."
+                    rospy.loginfo(message)
 
 
 
