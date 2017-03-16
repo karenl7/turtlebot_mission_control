@@ -22,9 +22,9 @@ class Supervisor:
         self.trans_broad = tf.TransformBroadcaster()
 
         rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.rviz_goal_callback)    # rviz "2D Nav Goal"
-        
-        # Read mission 
-        rospy.Subscriber('/mission', Int32MultiArray, self.mission_callback) 
+
+        # Read mission
+        rospy.Subscriber('/mission', Int32MultiArray, self.mission_callback)
 
         # Broadcast location of tags
         self.loc_broadcast = rospy.Publisher('/turtlebot_controller/nav_goal', Float32MultiArray, queue_size=10)
@@ -69,6 +69,7 @@ class Supervisor:
             try:
                 self.waypoint_offset.header.frame_id = "/tag_{0}".format(tag_number)
                 self.waypoint_locations[tag_number] = self.trans_listener.transformPose("/map", self.waypoint_offset)
+                #rospy.loginfo(self.waypoint_locations[tag_number])
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 pass
 
@@ -77,7 +78,7 @@ class Supervisor:
             (robot_translation,robot_rotation) = self.trans_listener.lookupTransform("/map", "/base_footprint", rospy.Time(0))
             self.has_robot_location = True
             self.x = robot_translation[0]
-            self.y = robot_translation[1]  
+            self.y = robot_translation[1]
             self.theta = tf.transformations.euler_from_quaternion(robot_rotation)[2]
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             robot_translation = (0,0,0)
@@ -85,8 +86,12 @@ class Supervisor:
             self.has_robot_location = False
 
     def check_close(self):
+        wp_x=self.waypoint_locations[self.mission[self.waypoint_number]].pose.position.x
+        wp_y=self.waypoint_locations[self.mission[self.waypoint_number]].pose.position.y
+        wp_quat =self.waypoint_locations[self.mission[self.waypoint_number]].pose.orientation
+        wp_th = tf.transformations.euler_from_quaternion(wp_quat)[2]
         return np.linalg.norm(np.array([self.x, self.y, self.theta]) - \
-                    self.waypoint_locations[self.mission[self.waypoint_number]]) < self.resolution
+                    np.array([wp_x,wp_y,wp_th])) < self.resolution
 
 
     def run(self):
@@ -99,7 +104,7 @@ class Supervisor:
 
             # explore
             if self.state == "explore":
-                 
+
                 # select points on rviz
                     # self.goal = self.rviz_goal_callback
                 # Broadcast next goal state
@@ -111,7 +116,7 @@ class Supervisor:
                 # Check if we've seen all tags
                 if set(self.waypoint_locations.keys()).issuperset(set(self.mission)):
                     self.state = "mission"
-                
+
 
 
             # go to tag locations
@@ -129,7 +134,7 @@ class Supervisor:
                     self.loc_broadcast.publish(data)
 
                 # Check if all waypoints done
-                
+
 
             # go home
             else:

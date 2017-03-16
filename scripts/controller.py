@@ -38,8 +38,8 @@ class Controller:
 
         if self.xg is not None:
 	        self.x = self.position[0]
-	        self.y = self.position[1]  
-	        self.theta = tf.transformations.euler_from_quaternion(self.orientation)[2]  
+	        self.y = self.position[1]
+	        self.theta = tf.transformations.euler_from_quaternion(self.orientation)[2]
 
 	        # use self.x self.y and self.theta to compute the right control input here
 	        # xg = np.array([1.0, 1.0])
@@ -57,14 +57,14 @@ class Controller:
 
 	        k1 = 0.5
 	        k2 = 0.5
-	        k3 = 0.5
+	        k3 = 1.
 
-	        if rho > .001:
+	        if rho > .05:
 	            cmd_x_dot = k1 * rho * np.cos(alpha)
 	            cmd_theta_dot = k2 * alpha + k1 * (np.sinc(alpha/np.pi) * np.cos(alpha)) * (alpha + k3 * delta)
 	        else:
 	            cmd_x_dot = 0.
-	            cmd_theta_dot = k2 * (self.xg[2] - self.theta)
+	            cmd_theta_dot = 0.3 * k2 * (self.xg[2] - self.theta)
 
 
 	        # Apply saturation limits
