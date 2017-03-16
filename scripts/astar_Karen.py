@@ -69,6 +69,13 @@ class AStar(object):
                 neighbours.append(nn)
         return neighbours
 
+    #Checks if a given path is still collision-free
+    def check_path(self,newpath):
+        for i in range(len(newpath)-1):
+            myneighs = self.get_neighbors(newpath[i])
+            if newpath[i+1] not in myneighs:
+                return False
+        return True
 
     # Gets the state in open_set that has the lowest f_score
     # INPUT: None

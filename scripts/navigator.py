@@ -18,6 +18,7 @@ class Navigator:
 
         self.plan_resolution = .25
         self.plan_horizon = 15
+        self.replan_threshold = self.plan_resolution/2.;
 
         self.map_width = 0
         self.map_height = 0
@@ -28,6 +29,8 @@ class Navigator:
         self.x = 0.0
         self.y = 0.0
         self.theta = 0.0
+        self.last_path = None
+        self.has_robot_location = False
 
         self.nav_sp = None
         self.pose_sp = (0.0,0.0,0.0)
@@ -61,13 +64,59 @@ class Navigator:
                                                   self.map_origin[1],
                                                   int(self.plan_resolution / self.map_resolution*2.5),
                                                   self.map_probs)
-        self.send_pose_sp()   # every time the map changes, we need to update our astar path. (also updates the position goal)
+        if self.has_robot_location and self.nav_sp:
+            state_min = (-int(round(self.plan_horizon)), -int(round(self.plan_horizon)))
+            state_max = (int(round(self.plan_horizon)), int(round(self.plan_horizon)))
+            x_init = (round(self.x/self.plan_resolution)*self.plan_resolution, round(self.y/self.plan_resolution)*self.plan_resolution)
+            x_goal = (round(self.nav_sp[0]/self.plan_resolution)*self.plan_resolution, round(self.nav_sp[1]/self.plan_resolution)*self.plan_resolution)
+            astar = AStar(state_min,state_max,x_init,x_goal,self.occupancy,self.plan_resolution)
+
+            if self.last_path and astar.check_path(self.last_path):
+                rospy.loginfo("Last computed path is still valid")
+                self.send_controller_goal()
+            else:
+                self.send_pose_sp()   # every time the map changes, we need to update our astar path. (also updates the position goal)
 
     def nav_sp_callback(self,msg):
-        self.nav_sp = (msg.data[0],msg.data[1],msg.data[2])
-        self.send_pose_sp()
+        new_nav_sp = (msg.data[0],msg.data[1],msg.data[2])
+        if not self.nav_sp:
+            self.nav_sp = (msg.data[0],msg.data[1],msg.data[2])
+            self.send_pose_sp()
+        elif ((new_nav_sp[2]-self.nav_sp[2])**2 + (new_nav_sp[1]-self.nav_sp[1])**2 + (new_nav_sp[0]-self.nav_sp[0])**2)>self.replan_threshold**2:
+            self.nav_sp = (msg.data[0],msg.data[1],msg.data[2])
+            self.send_pose_sp()
 
-    def send_pose_sp(self):
+    def send_controller_goal(self):
+        path_to_robot_dist = np.array(map(lambda x: (x[1]-self.y)**2 + (x[0]-self.x)**2, self.last_path))
+        track_astar_step_no=min( np.argmin(path_to_robot_dist)+1,len(self.last_path)-1) # we tell the controller to track the track_astar_step_no-th point in teh A* path
+
+        if len(self.last_path) > track_astar_step_no:
+            # a naive path follower we could use
+            #final_orientation_ctrl=np.arctan2(astar.path[track_astar_step_no][1]-astar.path[track_astar_step_no-1][1],astar.path[track_astar_step_no][1]-astar.path[track_astar_step_no-1][1])
+            final_orientation_ctrl=np.arctan2(self.last_path[track_astar_step_no][1]-self.last_path[track_astar_step_no-1][1],self.last_path[track_astar_step_no][1]-self.last_path[track_astar_step_no-1][1])
+            self.pose_sp = (self.last_path[track_astar_step_no][0],self.last_path[track_astar_step_no][1],final_orientation_ctrl)
+            msg = Float32MultiArray()
+            msg.data = self.pose_sp
+            self.pose_sp_pub.publish(msg)
+            # astar.plot_path()
+        else:
+            # when astar gives a single point,  position goal is tag position
+            msg = Float32MultiArray()
+            msg.data = self.nav_sp
+            self.pose_sp_pub.publish(msg)
+
+        # needed for rviz
+        path_msg = Path()   # path message for rviz
+        path_msg.header.frame_id = 'map'   # path message for rviz
+        for state in self.last_path:    # for the astar solution found
+            pose_st = PoseStamped()  # path message for rviz
+            pose_st.pose.position.x = state[0]
+            pose_st.pose.position.y = state[1]
+            pose_st.header.frame_id = 'map'
+            path_msg.poses.append(pose_st)
+        self.nav_path_pub.publish(path_msg)
+
+    def update_location(self):
         try:
             (robot_translation,robot_rotation) = self.trans_listener.lookupTransform("/map", "/base_footprint", rospy.Time(0))
             self.has_robot_location = True
@@ -78,56 +127,34 @@ class Navigator:
             robot_translation = (0,0,0)
             robot_rotation = (0,0,0,1)
             self.has_robot_location = False
+    def send_pose_sp(self):
+
 
         if self.occupancy and self.has_robot_location and self.nav_sp:
             state_min = (-int(round(self.plan_horizon)), -int(round(self.plan_horizon)))
             state_max = (int(round(self.plan_horizon)), int(round(self.plan_horizon)))
-            x_init = (round(robot_translation[0]/self.plan_resolution)*self.plan_resolution, round(robot_translation[1]/self.plan_resolution)*self.plan_resolution)
+            x_init = (round(self.x/self.plan_resolution)*self.plan_resolution, round(self.y/self.plan_resolution)*self.plan_resolution)
             x_goal = (round(self.nav_sp[0]/self.plan_resolution)*self.plan_resolution, round(self.nav_sp[1]/self.plan_resolution)*self.plan_resolution)
             astar = AStar(state_min,state_max,x_init,x_goal,self.occupancy,self.plan_resolution)
 
             rospy.loginfo("Computing navigation plan")
             if astar.solve():
-            	self.astar_status.publish(True)
-                track_astar_step_no=1 # we tell the controller to track the track_astar_step_no-th point in teh A* path
+                self.astar_status.publish(True)
                 rospy.loginfo("A* solved")
-                if len(astar.path) > track_astar_step_no:
-                    # a naive path follower we could use
-                    #final_orientation_ctrl=np.arctan2(astar.path[track_astar_step_no][1]-astar.path[track_astar_step_no-1][1],astar.path[track_astar_step_no][1]-astar.path[track_astar_step_no-1][1])
-                    final_orientation_ctrl=np.arctan2(astar.path[track_astar_step_no][1]-astar.path[track_astar_step_no-1][1],astar.path[track_astar_step_no][1]-astar.path[track_astar_step_no-1][1])
-                    self.pose_sp = (astar.path[track_astar_step_no][0],astar.path[track_astar_step_no][1],final_orientation_ctrl)
-                    msg = Float32MultiArray()
-                    msg.data = self.pose_sp
-                    self.pose_sp_pub.publish(msg)
-	                # astar.plot_path()
-            	else:
-            		# when astar gives a single point,  position goal is tag position
-                    msg = Float32MultiArray()
-                    msg.data = self.nav_sp
-                    self.pose_sp_pub.publish(msg)
-
-
-
-                # needed for rviz
-                path_msg = Path()   # path message for rviz
-                path_msg.header.frame_id = 'map'   # path message for rviz
-                for state in astar.path:    # for the astar solution found
-                    pose_st = PoseStamped()  # path message for rviz
-                    pose_st.pose.position.x = state[0]
-                    pose_st.pose.position.y = state[1]
-                    pose_st.header.frame_id = 'map'
-                    path_msg.poses.append(pose_st)
-                self.nav_path_pub.publish(path_msg)
+                self.last_path = astar.path
+                self.send_controller_goal()
 
             else:
-            	self.astar_status.publish(False)
+                self.astar_status.publish(False)
                 rospy.logwarn("Could not find path")
+                self.last_path = None
 
     def run(self):
     	rate = rospy.Rate(10) # 10 Hz
     	while not rospy.is_shutdown():
-            if (np.linalg.norm(np.array([self.x, self.y]) - np.array([self.pose_sp[0], self.pose_sp[1]])) < self.plan_resolution*0.7) :
-      		    self.send_pose_sp()
+            self.update_location()
+            #if (np.linalg.norm(np.array([self.x, self.y]) - np.array([self.pose_sp[0], self.pose_sp[1]])) < self.plan_resolution*0.7) :
+      	#	    self.send_pose_sp()
                 #rospy.loginfo("Arrived at pose_sp recomputing path")
             rate.sleep()
 

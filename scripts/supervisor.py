@@ -49,7 +49,7 @@ class Supervisor:
         self.x = 0.0
         self.y = 0.0
         self.theta = 0.0
-        self.resolution = 0.1
+        self.resolution = 0.3
         self.goal = None
 
     # Check if done moving to waypoint
@@ -124,7 +124,7 @@ class Supervisor:
             # go to tag locations
             elif self.state == "mission":
 
-                rospy.loginfo("Collecting relics")
+                rospy.loginfo("Collecting relics (%d/%d)"%(self.waypoint_number+1,len(self.mission)))
                 self.waypoint_done = self.check_close()
                 if self.waypoint_done:
                     self.waypoint_number += 1
