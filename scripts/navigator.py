@@ -9,13 +9,14 @@ from std_msgs.msg import Float32MultiArray, Bool
 from astar import AStar, DetOccupancyGrid2D, StochOccupancyGrid2D
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
+import pdb
 
 class Navigator:
 
     def __init__(self):
         rospy.init_node('navigator', anonymous=True)
 
-        self.plan_resolution = 0.1
+        self.plan_resolution = 0.25
         self.plan_horizon = 15
 
         self.map_width = 0
@@ -121,6 +122,9 @@ class Navigator:
     def run(self):
     	rate = rospy.Rate(10) # 10 Hz
     	while not rospy.is_shutdown():
+
+
+
             if np.linalg.norm(np.array([self.x, self.y]) - np.array([self.pose_sp[0], self.pose_sp[1]])) < self.plan_resolution*0.5:
       		    self.send_pose_sp()
             '''is_waypoint_done = Bool()

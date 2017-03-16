@@ -6,6 +6,7 @@ from geometry_msgs.msg import Twist
 import tf
 from std_msgs.msg import Float32MultiArray
 import numpy as np
+import pdb
 
 class Controller:
 
@@ -13,7 +14,7 @@ class Controller:
         rospy.init_node('turtlebot_controller', anonymous=True)
         # rospy.Subscriber('/gazebo/model_states', ModelStates, self.callback)
         self.trans_listener = tf.TransformListener()
-        rospy.Subscriber('/turtlebot_control/position_goal', Float32MultiArray, self.callback_desired)
+        rospy.Subscriber('/turtlebot_controller/position_goal', Float32MultiArray, self.callback_desired)
         self.pub = rospy.Publisher('cmd_vel_mux/input/navi', Twist, queue_size=10)
         self.x = 0.0
         self.y = 0.0
@@ -32,6 +33,8 @@ class Controller:
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
           self.position = (0, 0, 0)
           self.orientation = (0, 0, 0, 1)
+
+
 
         if self.xg is not None:
 	        self.x = self.position[0]
