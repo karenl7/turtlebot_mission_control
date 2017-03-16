@@ -60,8 +60,8 @@ class AStar(object):
     # OUTPUT: List of neighbors that are free, as a list of TUPLES
     def get_neighbors(self, x):
         # right, top right, top, top left, left, bottom left, bottom, bottom right
-        dx = [1, 1, 0, -1, -1, -1, -1, 0, 1]*self.resolution
-        dy = [0, 1, 1, 1, 0, -1, -1, -1, ]*self.resolution
+        dx = np.array([1, 1, 0, -1, -1, -1, -1, 0, 1])*self.resolution
+        dy = np.array([0, 1, 1, 1, 0, -1, -1, -1, ])*self.resolution
         neighbours = []
         for i in range(8):
             nn = (x[0] + dx[i], x[1] + dy[i])

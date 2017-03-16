@@ -43,7 +43,7 @@ class Supervisor:
 
         # Variables for FSM
         self.state = "explore"
-        self.mission = [1]
+        self.mission = [-1]
         self.waypoint_number = 0
         self.waypoint_done = False
         self.x = 0.0
@@ -104,7 +104,7 @@ class Supervisor:
 
             # explore
             if self.state == "explore":
-
+                rospy.loginfo("Exploring")
                 # select points on rviz
                     # self.goal = self.rviz_goal_callback
                 # Broadcast next goal state
@@ -121,6 +121,7 @@ class Supervisor:
 
             # go to tag locations
             elif self.state == "mission":
+                rospy.loginfo("Collecting relics")
                 if self.waypoint_done and (self.waypoint_number == len(self.mission)):
                     self.state = "home"
                 else:

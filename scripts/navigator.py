@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tf
 from std_msgs.msg import Float32MultiArray, Bool
-from astar import AStar, DetOccupancyGrid2D, StochOccupancyGrid2D
+from astar_Karen import AStar, DetOccupancyGrid2D, StochOccupancyGrid2D
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
 import pdb
@@ -59,7 +59,7 @@ class Navigator:
                                                   self.map_height,
                                                   self.map_origin[0],
                                                   self.map_origin[1],
-                                                  int(self.plan_resolution / self.map_resolution) * 2,
+                                                  int(self.plan_resolution / self.map_resolution*2.5),
                                                   self.map_probs)
         self.send_pose_sp()   # every time the map changes, we need to update our astar path. (also updates the position goal)
 
@@ -89,8 +89,8 @@ class Navigator:
             rospy.loginfo("Computing navigation plan")
             if astar.solve():
             	self.astar_status.publish(True)
-                track_astar_step_no=2 # we tell the controller to track the track_astar_step_no-th point in teh A* path
-
+                track_astar_step_no=1 # we tell the controller to track the track_astar_step_no-th point in teh A* path
+                rospy.loginfo("A* solved")
                 if len(astar.path) > track_astar_step_no:
                     # a naive path follower we could use
                     #final_orientation_ctrl=np.arctan2(astar.path[track_astar_step_no][1]-astar.path[track_astar_step_no-1][1],astar.path[track_astar_step_no][1]-astar.path[track_astar_step_no-1][1])
