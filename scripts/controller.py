@@ -4,7 +4,7 @@ import rospy
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Twist
 import tf
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, Bool
 import numpy as np
 import pdb
 
@@ -34,47 +34,45 @@ class Controller:
           self.position = (0, 0, 0)
           self.orientation = (0, 0, 0, 1)
 
-
-
         if self.xg is not None:
-	        self.x = self.position[0]
-	        self.y = self.position[1]
-	        self.theta = tf.transformations.euler_from_quaternion(self.orientation)[2]
+            self.x = self.position[0]
+            self.y = self.position[1]
+            self.theta = tf.transformations.euler_from_quaternion(self.orientation)[2]
 
-	        # use self.x self.y and self.theta to compute the right control input here
-	        # xg = np.array([1.0, 1.0])
-	        # th_g = 0.0
-	        x = np.array([self.x, self.y])
-	        rho = np.linalg.norm(x - self.xg[:2])
+            # use self.x self.y and self.theta to compute the right control input here
+            # xg = np.array([1.0, 1.0])
+            # th_g = 0.0
+            x = np.array([self.x, self.y])
+            rho = np.linalg.norm(x - self.xg[:2])
 
-	        alpha = np.arctan2(self.xg[1] - self.y, self.xg[0] - self.x) - self.theta
-	        delta = np.arctan2(self.xg[1] - self.y, self.xg[0] - self.x) - self.xg[2]
+            alpha = np.arctan2(self.xg[1] - self.y, self.xg[0] - self.x) - self.theta
+            delta = np.arctan2(self.xg[1] - self.y, self.xg[0] - self.x) - self.xg[2]
 
-	        if alpha < np.pi or alpha > np.pi:
-	            alpha = ( (alpha + np.pi) % (2 * np.pi)) - np.pi
-	        if delta < np.pi or delta > np.pi:
-	            delta = ( (delta + np.pi) % (2 * np.pi)) - np.pi
+            if alpha < np.pi or alpha > np.pi:
+                alpha = ( (alpha + np.pi) % (2 * np.pi)) - np.pi
+            if delta < np.pi or delta > np.pi:
+                delta = ( (delta + np.pi) % (2 * np.pi)) - np.pi
 
-	        k1 = 0.75
-	        k2 = 0.5
-	        k3 = 0.75
+            k1 = 0.75
+            k2 = 0.5
+            k3 = 0.75
 
-	        if rho > .05:
-	            cmd_x_dot = k1 * rho * np.cos(alpha)
-	            cmd_theta_dot = k2 * alpha + k1 * (np.sinc(alpha/np.pi) * np.cos(alpha)) * (alpha + k3 * delta)
-	        else:
-	            cmd_x_dot = 0.
-	            cmd_theta_dot = 0.3 * k2 * (self.xg[2] - self.theta)
+            if rho > .01:
+                cmd_x_dot = k1 * rho * np.cos(alpha)
+                cmd_theta_dot = 1.1 * k2 * alpha + k1 * (np.sinc(alpha/np.pi) * np.cos(alpha)) * (alpha + k3 * delta)
+            else:
+                cmd_x_dot = k1 * rho * np.cos(alpha)
+                cmd_theta_dot = k2 * (self.xg[2] - self.theta)
 
 
-	        # Apply saturation limits
-	        cmd_x_dot = np.sign(cmd_x_dot)*min(0.5, np.abs(cmd_x_dot))
-	        cmd_theta_dot = np.sign(cmd_theta_dot)*min(1, np.abs(cmd_theta_dot))
+            # Apply saturation limits
+            cmd_x_dot = np.sign(cmd_x_dot)*min(0.5, np.abs(cmd_x_dot))
+            cmd_theta_dot = np.sign(cmd_theta_dot)*min(1, np.abs(cmd_theta_dot))
 
-	        cmd = Twist()
-	        cmd.linear.x = cmd_x_dot
-	        cmd.angular.z = cmd_theta_dot
-	        return cmd
+            cmd = Twist()
+            cmd.linear.x = cmd_x_dot
+            cmd.angular.z = cmd_theta_dot
+            return cmd
 
         cmd = Twist()
         cmd.linear.x = 0

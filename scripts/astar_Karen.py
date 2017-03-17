@@ -12,6 +12,7 @@ class AStar(object):
         self.x_goal = x_goal                  # goal state
         self.occupancy = occupancy            # occupancy grid
         self.resolution = resolution          # resolution of the discretization of state space (cell/m)
+        self.tb_radius = 0.15
 
         self.closed_set = []    # the set containing the states that have been visited
         self.open_set = []      # the set containing the states that are candidate for future expansion
@@ -60,17 +61,21 @@ class AStar(object):
     # OUTPUT: List of neighbors that are free, as a list of TUPLES
     def get_neighbors(self, x):
         # right, top right, top, top left, left, bottom left, bottom, bottom right
-        dx = np.array([1, 1, 0, -1, -1, -1, -1, 0, 1])*self.resolution
-        dy = np.array([0, 1, 1, 1, 0, -1, -1, -1, ])*self.resolution
+        dx = np.array([1.0, 1.0, 0.0, -1.0, -1.0, -1.0, -1.0, 0.0, 1.0])*self.resolution
+        dy = np.array([0.0, 1.0, 1.0, 1.0, 0.0, -1.0, -1.0, -1.0, -1.0])*self.resolution
         neighbours = []
         for i in range(8):
+            dir = np.array([dx[i], dy[i]])/np.linalg.norm(np.array([dx[i], dy[i]]))
             nn = (x[0] + dx[i], x[1] + dy[i])
-            if self.is_free(nn):
+            nn_left = (nn[0] - dir[1]*self.tb_radius, nn[1] + dir[0]*self.tb_radius)
+            nn_top = (nn[0] + dir[0]*self.tb_radius, nn[1] + dir[1]*self.tb_radius)
+            nn_right = (nn[0] + dir[1]*self.tb_radius, nn[1] - dir[0]*self.tb_radius)
+            if self.is_free(nn) and self.is_free(nn_left) and self.is_free(nn_top) and self.is_free(nn_right):
                 neighbours.append(nn)
         return neighbours
 
     #Checks if a given path is still collision-free
-    def check_path(self,newpath):
+    def check_path(self, newpath):
         for i in range(len(newpath)-1):
             myneighs = self.get_neighbors(newpath[i])
             if newpath[i+1] not in myneighs:

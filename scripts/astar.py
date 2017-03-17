@@ -25,6 +25,8 @@ class AStar(object):
         self.g_score[x_init] = 0
         self.f_score[x_init] = self.distance(x_init,x_goal)
 
+        self.tb_radius = 0.17
+
         self.path = None        # the final path as a list of states
 
     # Checks if a give state is free, meaning it is inside the bounds of the map and
@@ -65,15 +67,37 @@ class AStar(object):
 
         for dx in [-1., 0., 1.]:
             for dy in [-1., 0., 1.]:
-
                 if dx != 0 or dy != 0:
-                    curr_neighbor = (x[0] + dx*self.resolution, x[1] + dy*self.resolution)
+                    nn = (x[0] + dx*self.resolution, x[1] + dy*self.resolution)
+                    nn = self.snap_to_grid(nn, self.resolution)
+                    dir = np.array([dx, dy])/np.linalg.norm(np.array([dx, dy]))
+                    nn_left = (nn[0] - dir[1]*self.tb_radius, nn[1] + dir[0]*self.tb_radius)
+                    nn_left = self.snap_to_grid(nn_left, self.resolution)
 
-                    if self.is_free(curr_neighbor):
-                        neighbor_list.append(curr_neighbor)
+                    nn_top = (nn[0] + dir[0]*self.tb_radius, nn[1] + dir[1]*self.tb_radius)
+                    nn_top = self.snap_to_grid(nn_top, self.resolution)
+
+                    nn_right = (nn[0] + dir[1]*self.tb_radius, nn[1] - dir[0]*self.tb_radius)
+                    nn_right = self.snap_to_grid(nn_right, self.resolution)
+
+                    if self.is_free(nn) and self.is_free(nn_left) and self.is_free(nn_top) and self.is_free(nn_right):
+                        neighbor_list.append(nn)
 
         return neighbor_list
 
+    def snap_to_grid(self,xy, resolution):
+        return (resolution*round(xy[0]/resolution), resolution*round(xy[1]/resolution))
+
+
+
+
+        #Checks if a given path is still collision-free
+    def check_path(self, newpath):
+        for i in range(len(newpath)-1):
+            myneighs = self.get_neighbors(newpath[i])
+            if newpath[i+1] not in myneighs:
+                return False
+        return True
 
     # Gets the state in open_set that has the lowest f_score
     # INPUT: None

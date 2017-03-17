@@ -41,6 +41,8 @@ class Supervisor:
         self.waypoint_offset.pose.orientation.z = quat[2]
         self.waypoint_offset.pose.orientation.w = quat[3]
 
+        self.all_tag_numbers = range(8)
+
         # Variables for FSM
         self.state = "explore"
         self.mission = [-1]
@@ -49,7 +51,7 @@ class Supervisor:
         self.x = 0.0
         self.y = 0.0
         self.theta = 0.0
-        self.resolution = 0.3
+        self.resolution = 0.15
         self.goal = None
 
     # Check if done moving to waypoint
@@ -65,13 +67,20 @@ class Supervisor:
         # this callback does nothing... yet!
 
     def update_waypoints(self):
-        for tag_number in self.mission:
+        for tag_number in self.all_tag_numbers:
             try:
                 self.waypoint_offset.header.frame_id = "/tag_{0}".format(tag_number)
                 self.waypoint_locations[tag_number] = self.trans_listener.transformPose("/map", self.waypoint_offset)
                 #rospy.loginfo(self.waypoint_locations[tag_number])
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 pass
+            if tag_number in self.waypoint_locations:
+                wp = self.waypoint_locations[tag_number].pose
+                self.trans_broad.sendTransform((wp.position.x, wp.position.y, 0),
+                                               (wp.orientation.x, wp.orientation.y, wp.orientation.z, wp.orientation.w),
+                                               rospy.Time.now(),
+                                               "waypoint_{0}".format(tag_number),
+                                               "/map")
 
     def update_position(self):
         try:
@@ -127,6 +136,7 @@ class Supervisor:
                 rospy.loginfo("Collecting relics (%d/%d)"%(self.waypoint_number+1,len(self.mission)))
                 self.waypoint_done = self.check_close()
                 if self.waypoint_done:
+                    rospy.loginfo('We are close to relic')
                     self.waypoint_number += 1
 
                 if self.waypoint_done and (self.waypoint_number == len(self.mission)):
@@ -138,6 +148,7 @@ class Supervisor:
                     tag_x, tag_y, tag_th = pose_to_xyth(self.waypoint_locations[self.mission[self.waypoint_number]].pose)
                     data = Float32MultiArray()
                     data.data = np.array([tag_x, tag_y, tag_th])
+                    rospy.loginfo('going to tag number: %d at position %f'%(self.mission[self.waypoint_number],data.data[0]))
                     self.loc_broadcast.publish(data)
 
                 # Check if all waypoints done
